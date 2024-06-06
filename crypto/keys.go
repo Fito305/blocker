@@ -3,6 +3,7 @@ package crypto
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/hex"
 	"io"
 
 )
@@ -14,10 +15,28 @@ const (
 	privKeyLen = 64
 	pubKeyLen = 32
 	seedLen = 32
+	addressLen = 20
 )
 
 type PrivateKey struct {
 	key ed25519.PrivateKey
+}
+
+func NewPrivateKeyFromString(s string) *PrivateKey {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return NewPrivateKeyFromSeed(b)
+}
+
+func NewPrivateKeyFromSeed(seed []byte) *PrivateKey {
+	if len(seed) != seedLen {
+		panic("invalid seed length, must be 32")
+	}
+	return &PrivateKey{
+		key: ed25519.NewKeyFromSeed(seed),
+	}
 }
 
 func GeneratePrivateKey() *PrivateKey {
@@ -39,7 +58,7 @@ func (p *PrivateKey) Bytes() []byte {
 }
 
 func (p *PrivateKey) Sign(msg []byte) *Signature {
-	return Signature{
+	return &Signature{
 		value: ed25519.Sign(p.key, msg),
 	}
 }
@@ -57,6 +76,12 @@ type PublicKey struct {
 	key ed25519.PublicKey
 }
 
+func (p *PublicKey) Address() Address {
+	return Address{
+		value: p.key[len(p.key)-addressLen:],
+	}
+}
+
 func (p *PublicKey) Bytes() []byte {
 	return p.key
 }
@@ -64,3 +89,34 @@ func (p *PublicKey) Bytes() []byte {
 type Signature struct {
 	value []byte
 }
+
+func (s *Signature) Bytes() []byte {
+	return s.value
+}
+
+func (s *Signature) Verify(pubKey *PublicKey, msg []byte) bool {
+	return ed25519.Verify(pubKey.key, msg, s.value)
+}
+
+type Address struct {
+	value []byte 
+}
+
+// It's always nice to have Bytes() incase you need to do 
+// serilization. 
+func (a Address) Bytes() []byte {
+	return a.value
+}
+
+func (a Address) String() string {
+	return hex.EncodeToString(a.value)
+}
+
+//NOTE:
+// Public keys can be shared publicly.
+
+// An address is basically another representation 
+// of the public key. Most of the time it's some king of HEX
+// representation of the bytes of the public key. Most of the
+// time it's just the first 20 or something bytes.
+// We will use the first 20 bytes as our address.
