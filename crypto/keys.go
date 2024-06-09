@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"io"
-
 )
 
 // The length of the privat key is going to be 64 because its going to 

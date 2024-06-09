@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+option go_package = "github.com/Fito305/blocker/proto";
+
+// If you want ot make a type you call it a message.
+// If you want to make a slice / array it's repeaded
+message Block {
+    Header header = 1;
+    repeated Transaction transactions = 2;
+}
+
+message Header {
+    int32 version = 1;
+    int32 height = 2;
+    bytes prevHash = 3;
+    bytes rootHash = 4; // merkle root of txs
+    int64 timestamp = 5;
+}
+
+message Transaction {}
+
+
+
+// NOTE: 
+// A Protobuffer - is used for encoding. it is a serialization protocol. 
+// You can specify everything in a .proto file and the each language can compile that into a protobuffer format.
+// Basically, in the block chain we have blocks. And a block consists out of a header, transaction and some
+// other files. And the reason we have a header and a block is because, most of the time we don't want to 
+// send everything over to notes, sometimes we only want to send headers for simple verification. And we also 
+// do not want to hash the complete block. We only want to hash the header. It's a very common structure. It's 
+// used in Bitcoin and a lot of other blockchain protocols. 
+
+// What is the verions? It's the verion of the block. 
+// The version of our serialization protocol. 
+//It could be that we have some fields right now but later on that we add more fields,
+// and people that are reading our blocks can check the headers and the version and
+// if the version does not match they can say "we are not compatible with each other"
+// and they can find another node that has the correct version.  Communicating the structure / version of 
+// our blocks is important. important for backwards compatibility. The `height` of the block is basically,
+// for example, if you have 10 blocks you are going to have a hieght of 10. bitcoin does not use the height. 
+// It's basically, an ID but its the height or the index of the block.
+// The previous hash of the block, of the preious block, is a chain because we are going to these hashes 
+// and we are going to link them together. That is the core semantics of the blockchain. 
+// The rootHash is going to be the root of our merkle tree of our transactions.
+// timestamp is the time of when the block is created. 
+
+// We need a way to compile this file, so we will add it in the Makefile. The proto/*.proto means
+// that everything in the proto directory will be compiled.
