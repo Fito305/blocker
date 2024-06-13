@@ -3,12 +3,12 @@ package types
 import (
 	"crypto/sha256"
 	
-	"github.com/fito305/blocker/crypto"
-	"github.com/fito305/blocker/proto"
+	"github.com/Fito305/blocker/crypto"
+	"github.com/Fito305/blocker/proto"
 	pb "google.golang.org/protobuf/runtime/protoimpl"
 )
 
-func SignBlock(pk *crypto.PrivateKey, b *proto.Block) *cypto.Signature {
+func SignBlock(pk *crypto.PrivateKey, b *proto.Block) *crypto.Signature {
 	return pk.Sign(HashBlock(b))
 }
 

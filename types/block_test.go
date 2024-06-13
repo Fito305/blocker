@@ -3,9 +3,10 @@ package types
 import (
 	"fmt"
 	"testing"
+	"encoding/hex"
 
-	"github,com/fito305/blocker/crypto"
-	"github.com/fito305/blocker/util"
+	"github.com/Fito305/blocker/crypto"
+	"github.com/Fito305/blocker/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +25,7 @@ func TestSignBlock(t *testing.T) {
 	// and again the hash of that block. And then that should match.
 	sig := SignBlock(privKey, block)
 	assert.Equal(t, 64, len(sig.Bytes()))
-	asset.True(t, sig.Verify(pubKey, HashBlock(block)))
+	assert.True(t, sig.Verify(pubKey, HashBlock(block)))
 
 }
 
