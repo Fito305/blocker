@@ -25,8 +25,9 @@ type Version struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	Height  int32  `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"` // What's going to happen here, the protocol from our node, before we are going to connect to a node, we first need to send a handshake which is basically called version, handshake. It's basically some kind of a way shake hands. They want to get to know each other. Example, Im node A and I want to connect to node B in our blockchain, what is going to happen is I am going to send a handshake and in this handshake I'm going to call the hanshake rpc method from grpc. And I'm going to send the hanshake strucuture / message and I'm going to specify my version, from node A, B I'm A. This is my current version of the protocol node, his height and someother things. On the other side, the node is going to respond, it's going to say this is version one, his height is less so it can check I'm almost full of connections. he is lower than me so fuck him, it's not an interesting node for me because I'm already full, I'm already on load. He is going to basically, needs to sync with me so no. On the other hand, they could accept it. Then we are going to resend our own version. So I'm node A i'm going to send my handsake to node B. Node B is going to respond with his version, because it could be that node B's height is lower than our hieght. maybe we are above 100 but the server you are connecting to is at block 50 (hieght). That is a bad node for us. Why would you connect with that node. We cannot sync with him. He needs to sync with us. Of course in an ideal scenario everyone can actually sync with each other and be at the height everyone needs to be. But most of the time when you are full you don't want to connect with nodes that are lower than you because they don't provide any benifits. But that is when we are full of connections.
+	Version    string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	Height     int32  `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"` // What's going to happen here, the protocol from our node, before we are going to connect to a node, we first need to send a handshake which is basically called version, handshake. It's basically some kind of a way shake hands. They want to get to know each other. Example, Im node A and I want to connect to node B in our blockchain, what is going to happen is I am going to send a handshake and in this handshake I'm going to call the hanshake rpc method from grpc. And I'm going to send the hanshake strucuture / message and I'm going to specify my version, from node A, B I'm A. This is my current version of the protocol node, his height and someother things. On the other side, the node is going to respond, it's going to say this is version one, his height is less so it can check I'm almost full of connections. he is lower than me so fuck him, it's not an interesting node for me because I'm already full, I'm already on load. He is going to basically, needs to sync with me so no. On the other hand, they could accept it. Then we are going to resend our own version. So I'm node A i'm going to send my handsake to node B. Node B is going to respond with his version, because it could be that node B's height is lower than our hieght. maybe we are above 100 but the server you are connecting to is at block 50 (hieght). That is a bad node for us. Why would you connect with that node. We cannot sync with him. He needs to sync with us. Of course in an ideal scenario everyone can actually sync with each other and be at the height everyone needs to be. But most of the time when you are full you don't want to connect with nodes that are lower than you because they don't provide any benifits. But that is when we are full of connections.
+	ListenAddr string `protobuf:"bytes,3,opt,name=listenAddr,proto3" json:"listenAddr,omitempty"`
 }
 
 func (x *Version) Reset() {
@@ -73,6 +74,13 @@ func (x *Version) GetHeight() int32 {
 		return x.Height
 	}
 	return 0
+}
+
+func (x *Version) GetListenAddr() string {
+	if x != nil {
+		return x.ListenAddr
+	}
+	return ""
 }
 
 type Ack struct {
@@ -444,10 +452,12 @@ var File_proto_types_proto protoreflect.FileDescriptor
 
 var file_proto_types_proto_rawDesc = []byte{
 	0x0a, 0x11, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x22, 0x3b, 0x0a, 0x07, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x18,
+	0x6f, 0x74, 0x6f, 0x22, 0x5b, 0x0a, 0x07, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x18,
 	0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x16, 0x0a, 0x06, 0x68, 0x65, 0x69, 0x67,
 	0x68, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74,
+	0x12, 0x1e, 0x0a, 0x0a, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x41, 0x64, 0x64, 0x72,
 	0x22, 0x05, 0x0a, 0x03, 0x41, 0x63, 0x6b, 0x22, 0x5a, 0x0a, 0x05, 0x42, 0x6c, 0x6f, 0x63, 0x6b,
 	0x12, 0x1f, 0x0a, 0x06, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
 	0x32, 0x07, 0x2e, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x52, 0x06, 0x68, 0x65, 0x61, 0x64, 0x65,
