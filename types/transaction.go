@@ -6,7 +6,8 @@ import (
 
 	"github.com/Fito305/blocker/crypto"
 	"github.com/Fito305/blocker/proto"
-	pb "google.golang.org/protobuf/runtime/protoimpl" // In the video this path is different.
+	// pb "google.golang.org/protobuf/runtime/protoimpl" // In the video this path is different.
+	pb "github.com/golang/protobuf/proto"
 )
 
 func SignTransaction(pk *crypto.PrivateKey, tx *proto.Transaction) *crypto.Signature {
