@@ -14,6 +14,35 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
+// A Mempool is just a pool in memory of known transactions. For example, if we are playing a game, and we are playing a numbers game, if I'm telling you numbers and we need to go from 1 - 10 but you cannot have any duplicates. What are you going to do, you are going to remember the numbers you choose because you cannot choose the same one again.
+// So a Mempool is each time I'm sending a transaction, I'm going to remember that transaction in my memory. So the next time some other dude is sending me the same transaction, because it's a peer to peer protocol it could be that there is some delay and I already recieved a transaction from Bob but Alice transaction takes a longer round trip, I aleady have a transaction from Bob so i don't need to have the same transaction from alice so I can just drop it.
+// You can make a Mempool as compact as you want.
+type Mempool struct {
+	txx map[string]*proto.Transaction
+}
+
+func NewMempool() *Mempool {
+	return &Mempool{
+		txx: make(map[string]*proto.Transaction),
+	}
+}
+
+func (pool *Mempool) Has(tx *proto.Transaction) bool {
+	// So what is happening here, we are making the hash representation string from the transaction hash, you are going to hash it. make it a nice hash string so we can use it a map (you cannot use bytes as a key in a map in go). So we are going to use a string. And we are going to check if we already have it yes or no. And we return that value.
+	hash := hex.EncodeToString(types.HashTransaction(tx))
+	_, ok := pool.txx[hash]
+	return ok
+}
+
+func (pool *Mempool) Add(tx *proto.Transaction) bool {
+	if pool.Has(tx) {
+		return false // if we already have it return false because we did Add() it.
+	}
+	hash := hex.EncodeToString(types.HashTransaction(tx))
+	pool.txx[hash] = tx
+	return true // In this case if we don't have it, we are going to Add() it. These bools allows use a skip in checks in HandleTransaction()
+}
+
 type Node struct {
 	version    string
 	listenAddr string
@@ -21,6 +50,7 @@ type Node struct {
 
 	peerLock sync.RWMutex
 	peers    map[proto.NodeClient]*proto.Version
+	mempool  *Mempool
 
 	proto.UnimplementedNodeServer
 }
@@ -33,6 +63,7 @@ func NewNode() *Node {
 		peers:   make(map[proto.NodeClient]*proto.Version),
 		version: "blocker-0.1",
 		logger:  logger.Sugar(),
+		mempool: NewMempool(),
 	}
 }
 
@@ -122,13 +153,15 @@ func (n *Node) HandleTransaction(ctx context.Context, tx *proto.Transaction) (*p
 	peer, _ := peer.FromContext(ctx)
 	hash := hex.EncodeToString(types.HashTransaction(tx))
 
-	n.logger.Debugw("received tx", "from", peer.Addr, "hash", hash)
-
-	go func() { // because if we go go boradcast() we will never see the error. Here we handle the error.
-		if err := n.broadcast(tx); err != nil {
-			n.logger.Errorw("broadcast error", "err", err)
-		}
-	}()
+	// Wrap with this if statement to fix infinite loop, before we actually broadcast we are going to check .
+	if n.mempool.Add(tx) { // If we added the mempool then we are going to broadcast it.
+		n.logger.Debugw("received tx", "from", peer.Addr, "hash", hash, "we", n.listenAddr)
+		go func() { // because if we go go boradcast() we will never see the error. Here we handle the error.
+			if err := n.broadcast(tx); err != nil {
+				n.logger.Errorw("broadcast error", "err", err)
+			}
+		}()
+	}
 
 	return &proto.Ack{}, nil
 }
@@ -204,3 +237,16 @@ func makeNodeClient(listenAddr string) (proto.NodeClient, error) {
 	}
 	return proto.NewNodeClient(c), nil
 }
+
+// NOTE: Mutexes are slow. So how far you can go without using them.
+// Who is making transactions? We the normal people are making transactions. People are going to make transactions 
+// by posting it in wallets. By posting it in wallets through JSON API. We post that to a node and that node(server) is going to
+// validate it and its going to broadcast it and put it into the mempool and then we have validators.
+// Validators normally in a proof of work, the first to solve the puzzle will be able to forge the block and get the reward.
+// in our case in a proof of stake, we are going to have a consensus mechanism that is basically going to
+// determine who for this round is going to forge a block. Because we cannot all forge a block. Let's say if we are in a room with
+// 5 people and only the leader can do something, only the leader can press the red button, to escape in a an escape room. Only the
+// leader can do that but who is the leader? Is everybody going directly to this button we are going to clap each other's cheeks
+// because you can't. There needs to be a leader. So how do you come to a decision of who is a leader? Well it is by consensus. 
+// You are going to discuss with each other and at a certain point of time they do a vote and choose a leader. That is the same thing here
+// that node can forge a block.
