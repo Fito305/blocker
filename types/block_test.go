@@ -1,16 +1,14 @@
 package types
 
 import (
-	"fmt"
 	"testing"
-	"encoding/hex"
 
 	"github.com/Fito305/blocker/crypto"
 	"github.com/Fito305/blocker/util"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSignBlock(t *testing.T) {
+func TestSignVerifyBlock(t *testing.T) {
 	var (
 	block = util.RandomBlock()
 	privKey = crypto.GeneratePrivateKey()
@@ -27,11 +25,19 @@ func TestSignBlock(t *testing.T) {
 	assert.Equal(t, 64, len(sig.Bytes()))
 	assert.True(t, sig.Verify(pubKey, HashBlock(block)))
 
+	assert.Equal(t, block.PublicKey, pubKey.Bytes())
+	assert.Equal(t, block.Signature, sig.Bytes())
+	assert.True(t, VerifyBlock(block))
+
+	invalidPrivKey := crypto.GeneratePrivateKey()
+	block.PublicKey = invalidPrivKey.Public().Bytes()
+	assert.False(t, VerifyBlock(block))
+
 }
 
 func TestHashBlock(t *testing.T) {
 	block := util.RandomBlock()
 	hash := HashBlock(block)
-	fmt.Println(hex.EncodeToString(hash)) // Will print out the hash of the block. That is what we are going to use to retrieve the block. You can also retireve a block by it's height, but you can also query a block by it's hash on the chain. And that is basically this hash.
+	// fmt.Println(hex.EncodeToString(hash)) // Will print out the hash of the block. That is what we are going to use to retrieve the block. You can also retireve a block by it's height, but you can also query a block by it's hash on the chain. And that is basically this hash.
 	assert.Equal(t, 32, len(hash))
 }

@@ -22,9 +22,12 @@ message Ack {
 
 // If you want ot make a type you call it a message.
 // If you want to make a slice / array it's repeaded
+// It is important that we have a publickey and a signature, becuase someone is going to sign the block and the publickey belonging to that block is basically the guy that is who publickey belongs to the privatekey that signed that block.
 message Block {
     Header header = 1;
     repeated Transaction transactions = 2;
+    bytes publicKey = 3;
+    bytes signature = 4;
 }
 
 message Header {

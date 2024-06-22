@@ -6,7 +6,9 @@ import (
 	// "fmt"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/Fito305/blocker/crypto"
 	"github.com/Fito305/blocker/proto"
 	"github.com/Fito305/blocker/types"
 	"go.uber.org/zap"
@@ -14,10 +16,13 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
+const blockTime = time.Second * 5
+
 // A Mempool is just a pool in memory of known transactions. For example, if we are playing a game, and we are playing a numbers game, if I'm telling you numbers and we need to go from 1 - 10 but you cannot have any duplicates. What are you going to do, you are going to remember the numbers you choose because you cannot choose the same one again.
 // So a Mempool is each time I'm sending a transaction, I'm going to remember that transaction in my memory. So the next time some other dude is sending me the same transaction, because it's a peer to peer protocol it could be that there is some delay and I already recieved a transaction from Bob but Alice transaction takes a longer round trip, I aleady have a transaction from Bob so i don't need to have the same transaction from alice so I can just drop it.
 // You can make a Mempool as compact as you want.
 type Mempool struct {
+	lock sync.RWMutex
 	txx map[string]*proto.Transaction
 }
 
@@ -27,7 +32,31 @@ func NewMempool() *Mempool {
 	}
 }
 
+func (pool *Mempool) Clear() []*proto.Transaction { // We are going to clear the Mempool but we are also going to return a slice of proto.Transactions because we need it to add more blocks.
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+
+	txx := make([]*proto.Transaction, len(pool.txx))
+	it := 0
+	for k, v := range pool.txx {
+		delete(pool.txx, k)
+		txx[it] = v
+		it++
+	}
+	return txx 
+}
+
+func (pool *Mempool) Len() int {
+	pool.lock.RLock()
+	defer pool.lock.RUnlock()
+
+	return len(pool.txx)
+}
+
 func (pool *Mempool) Has(tx *proto.Transaction) bool {
+	pool.lock.RLock() // read lock
+	defer pool.lock.RUnlock()
+
 	// So what is happening here, we are making the hash representation string from the transaction hash, you are going to hash it. make it a nice hash string so we can use it a map (you cannot use bytes as a key in a map in go). So we are going to use a string. And we are going to check if we already have it yes or no. And we return that value.
 	hash := hex.EncodeToString(types.HashTransaction(tx))
 	_, ok := pool.txx[hash]
@@ -38,15 +67,24 @@ func (pool *Mempool) Add(tx *proto.Transaction) bool {
 	if pool.Has(tx) {
 		return false // if we already have it return false because we did Add() it.
 	}
+
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+
 	hash := hex.EncodeToString(types.HashTransaction(tx))
 	pool.txx[hash] = tx
 	return true // In this case if we don't have it, we are going to Add() it. These bools allows use a skip in checks in HandleTransaction()
 }
 
+type ServerConfig struct {
+	Version    string
+	ListenAddr string
+	PrivateKey *crypto.PrivateKey // Validator key
+}
+
 type Node struct {
-	version    string
-	listenAddr string
-	logger     *zap.SugaredLogger
+	ServerConfig // embedd it.
+	logger       *zap.SugaredLogger
 
 	peerLock sync.RWMutex
 	peers    map[proto.NodeClient]*proto.Version
@@ -55,15 +93,15 @@ type Node struct {
 	proto.UnimplementedNodeServer
 }
 
-func NewNode() *Node {
+func NewNode(cfg ServerConfig) *Node {
 	loggerConfig := zap.NewDevelopmentConfig()
 	loggerConfig.EncoderConfig.TimeKey = ""
 	logger, _ := loggerConfig.Build()
 	return &Node{
-		peers:   make(map[proto.NodeClient]*proto.Version),
-		version: "blocker-0.1",
-		logger:  logger.Sugar(),
-		mempool: NewMempool(),
+		peers:        make(map[proto.NodeClient]*proto.Version),
+		logger:       logger.Sugar(),
+		mempool:      NewMempool(),
+		ServerConfig: cfg,
 	}
 }
 
@@ -84,7 +122,7 @@ func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
 
 	// Print out here who are we as well [%s]. Our listen Address
 	n.logger.Debugw("new peer successfully connected",
-		"ourNode:", n.listenAddr,
+		"ourNode:", n.ListenAddr,
 		"remoteNode:", v.ListenAddr,
 		"height:", v.Height) // You'll see the address and nodes connected to each other due to PEER DISCOVERY.
 }
@@ -100,10 +138,10 @@ func (n *Node) bootstrapNetwork(addrs []string) error {
 		if !n.canConnectWith(addr) {
 			continue
 		}
-		if addr == n.listenAddr {
+		if addr == n.ListenAddr {
 			continue
 		}
-		n.logger.Debugw("dialing remote node", "we", n.listenAddr, "remoteNode", addr)
+		n.logger.Debugw("dialing remote node", "we", n.ListenAddr, "remoteNode", addr)
 		c, v, err := n.dialRemoteNode(addr)
 		if err != nil {
 			return err
@@ -116,7 +154,7 @@ func (n *Node) bootstrapNetwork(addrs []string) error {
 }
 
 func (n *Node) Start(listenAddr string, bootstrapNodes []string) error {
-	n.listenAddr = listenAddr
+	n.ListenAddr = listenAddr
 
 	var (
 		opts       = []grpc.ServerOption{}
@@ -127,12 +165,16 @@ func (n *Node) Start(listenAddr string, bootstrapNodes []string) error {
 		return err
 	}
 	proto.RegisterNodeServer(grpcServer, n)
-	n.logger.Infow("node started...", "port", n.listenAddr)
+	n.logger.Infow("node started...", "port", n.ListenAddr)
 
 	//  bootstrap the network with a list of already known nodes
 	// in the network.
 	if len(bootstrapNodes) > 0 {
 		go n.bootstrapNetwork(bootstrapNodes)
+	}
+
+	if n.PrivateKey != nil {
+		go n.validatorLoop()
 	}
 
 	return grpcServer.Serve(ln)
@@ -155,7 +197,7 @@ func (n *Node) HandleTransaction(ctx context.Context, tx *proto.Transaction) (*p
 
 	// Wrap with this if statement to fix infinite loop, before we actually broadcast we are going to check .
 	if n.mempool.Add(tx) { // If we added the mempool then we are going to broadcast it.
-		n.logger.Debugw("received tx", "from", peer.Addr, "hash", hash, "we", n.listenAddr)
+		n.logger.Debugw("received tx", "from", peer.Addr, "hash", hash, "we", n.ListenAddr)
 		go func() { // because if we go go boradcast() we will never see the error. Here we handle the error.
 			if err := n.broadcast(tx); err != nil {
 				n.logger.Errorw("broadcast error", "err", err)
@@ -164,6 +206,17 @@ func (n *Node) HandleTransaction(ctx context.Context, tx *proto.Transaction) (*p
 	}
 
 	return &proto.Ack{}, nil
+}
+
+func (n *Node) validatorLoop() {
+	n.logger.Infow("starting validator loop", "pubkey", n.PrivateKey.Public(), "blockTime", blockTime)
+	ticker := time.NewTicker(blockTime)
+	for {
+		<-ticker.C
+
+		txx := n.mempool.Clear() // We are going to clear the mempool, with the transactions, and these transactions we are going to froge into a block.
+		n.logger.Debugw("time to create a new block", "lenTx", len(txx))
+	}
 }
 
 // The thing is because we don't have the concept of messages, we have the concept of proto types. So we need to say here if you want to broadcast something you pass in msg of any type.
@@ -198,7 +251,7 @@ func (n *Node) getVersion() *proto.Version { // You are going to call version on
 	return &proto.Version{
 		Version:    "blocker-0.1",
 		Height:     0,
-		ListenAddr: n.listenAddr,
+		ListenAddr: n.ListenAddr,
 		PeerList:   n.getPeerList(),
 	}
 }
@@ -216,7 +269,7 @@ func (n *Node) getPeerList() []string { // returns a slice of strings because ou
 
 func (n *Node) canConnectWith(addr string) bool {
 	// We are going to check if we can connect to a certain address. We are going to check is this address the same as ours? Then we don't connect. Then we are going to loop through all of our connected peers and check if the address we are trying to connect to is already in that list. If its already in that list we don't connect. If it is not in that list we can connect.
-	if n.listenAddr == addr {
+	if n.ListenAddr == addr {
 		return false
 	}
 
@@ -239,7 +292,7 @@ func makeNodeClient(listenAddr string) (proto.NodeClient, error) {
 }
 
 // NOTE: Mutexes are slow. So how far you can go without using them.
-// Who is making transactions? We the normal people are making transactions. People are going to make transactions 
+// Who is making transactions? We the normal people are making transactions. People are going to make transactions
 // by posting it in wallets. By posting it in wallets through JSON API. We post that to a node and that node(server) is going to
 // validate it and its going to broadcast it and put it into the mempool and then we have validators.
 // Validators normally in a proof of work, the first to solve the puzzle will be able to forge the block and get the reward.
@@ -247,6 +300,12 @@ func makeNodeClient(listenAddr string) (proto.NodeClient, error) {
 // determine who for this round is going to forge a block. Because we cannot all forge a block. Let's say if we are in a room with
 // 5 people and only the leader can do something, only the leader can press the red button, to escape in a an escape room. Only the
 // leader can do that but who is the leader? Is everybody going directly to this button we are going to clap each other's cheeks
-// because you can't. There needs to be a leader. So how do you come to a decision of who is a leader? Well it is by consensus. 
+// because you can't. There needs to be a leader. So how do you come to a decision of who is a leader? Well it is by consensus.
 // You are going to discuss with each other and at a certain point of time they do a vote and choose a leader. That is the same thing here
 // that node can forge a block.
+
+// Not everybody can forge a block out of the mempool. We need to have some sort of a consensus. What we going to do to mimick that we are going to
+// make a config and we are going to put a rpivate key in the config and the guy with the private key in his config, because he needs a private key to sign the blocks,
+// that is going to be the validator. Additionally, each time we cealr the block we need to delete the transaction from the mempool.
+
+// Tx is short for transaction.

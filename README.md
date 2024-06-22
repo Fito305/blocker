@@ -69,3 +69,31 @@ node.go notes
 // You can never assume that a message is coming at a certain point you have to expect the message coming. An ideal timeframe for when the message is coming.
 // A message can come at any time at a certain point of time. It does it async. We don't know in what order it is coming in. So what is going to happen is
 // we are going to have peer lists with ourselves in it. And it is also going to have pper list recieved with nodes in them that we are already connected to. 
+
+
+chain.go
+// NOTE: We need to store a lot of stuff. We need to create our memory store. We need to store blocks, transactions, a lot of stuff.
+// And most of these blockchains they do that by using some kind of level DB over ROX Db which is a embedded key value store.
+// And an embedded key value store is something that is not running on your machine. It is embedded into your application.
+// It is running into your applciation. So ppl dont need to have if they want to put up a node, they dont need to have something else
+// installed. The only thing they need to do is run your program, run the node and it is all good. And everything is getting boot up in the same binary,
+// in the same compiled executable program. But before we are going to use these key value stores, these embedded stuff,
+// we are going to make our own memory implementation. So we are going to store everything in memory. Everything is eventually a key value store
+// embedded (not always they do store it into disk). We are going to store everything in memory just so we have something that we
+// can simply use to test. And because it is an interface if we later on want to swap that out with a level DB or a blocks DB,
+// we just need to make the interface implementation. Swap it out and we dont need to change anything from a business logic. because
+// the interface will do its job. That is the power of interfaces.
+
+// There should always be one block because we are always going to have the genesis block.
+
+// So what is going to happen is that each time we add a block, we are going to add the header to the list of headers. 
+
+keys.go
+//NOTE:
+// Public keys can be shared publicly.
+
+// An address is basically another representation 
+// of the public key. Most of the time it's some king of HEX
+// representation of the bytes of the public key. Most of the
+// time it's just the first 20 or something bytes.
+// We will use the first 20 bytes as our address.

@@ -1,9 +1,11 @@
 package node
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 
+	"github.com/Fito305/blocker/crypto"
 	"github.com/Fito305/blocker/proto"
 	"github.com/Fito305/blocker/types"
 )
@@ -45,10 +47,12 @@ type Chain struct {
 
 // Constructor
 func NewChain(bs BlockStorer) *Chain {
-	return &Chain{
+	chain :=  &Chain{
 		blockStore: bs,
 		headers: NewHeaderList(),
 	}
+	chain.addBlock(createGenesisBlock()) // Create the genesis block without validation. Now we have that genesis block each time we create our new blockchain.
+	return chain
 }
 
 func (c *Chain) Height() int {
@@ -56,10 +60,17 @@ func (c *Chain) Height() int {
 }
 
 func (c *Chain) AddBlock(b *proto.Block) error {
+	if err := c.ValidateBlock(b); err != nil {
+		return err
+	}
+	return c.addBlock(b) // block with validation.
+}
+
+func (c *Chain) addBlock(b *proto.Block) error {
 	// Add the header to the list of headers.
 	c.headers.Add(b.Header)
 	// validation
-	return c.blockStore.Put(b)
+	return c.blockStore.Put(b) // block without validation. The genisis block is not validated.
 }
 
 func (c *Chain) GetBlockByHash(hash []byte) (*proto.Block, error) {
@@ -77,18 +88,36 @@ func (c *Chain) GetBlockByHeight(height int) (*proto.Block, error) {
 	return c.GetBlockByHash(hash)
 }
 
-// NOTE: We need to store a lot of stuff. We need to create our memory store. We need to store blocks, transactions, a lot of stuff.
-// And most of these blockchains they do that by using some kind of level DB over ROX Db which is a embedded key value store.
-// And an embedded key value store is something that is not running on your machine. It is embedded into your application.
-// It is running into your applciation. So ppl dont need to have if they want to put up a node, they dont need to have something else
-// installed. The only thing they need to do is run your program, run the node and it is all good. And everything is getting boot up in the same binary,
-// in the same compiled executable program. But before we are going to use these key value stores, these embedded stuff,
-// we are going to make our own memory implementation. So we are going to store everything in memory. Everything is eventually a key value store
-// embedded (not always they do store it into disk). We are going to store everything in memory just so we have something that we
-// can simply use to test. And because it is an interface if we later on want to swap that out with a level DB or a blocks DB,
-// we just need to make the interface implementation. Swap it out and we dont need to change anything from a business logic. because
-// the interface will do its job. That is the power of interfaces.
+func (c *Chain) ValidateBlock(b *proto.Block) error { // the b passed in the parameter is a new block.
+	// Validate the signature of the block.
+	if !types.VerifyBlock(b) {
+		return fmt.Errorf("invalide block signature")
+	}
 
-// There should always be one block because we are always going to have the genesis block.
+	// validate if the previous hash is the actual hash of the current block.
+	currentBlock, err := c.GetBlockByHeight(c.Height()) // The hash of the new block b, will be the has of the current block.
+	if err != nil {
+		return err
+	}
+	hash := types.HashBlock(currentBlock)
+	if !bytes.Equal(hash, b.Header.PrevHash) {
+		return fmt.Errorf("invalid previous block hash")
+	}
+	return nil
+}
 
-// So what is going to happen is that each time we add a block, we are going to add the header to the list of headers. 
+func createGenesisBlock() *proto.Block {
+	privKey := crypto.GeneratePrivateKey()
+	block := &proto.Block{
+		Header: &proto.Header{
+			Version: 1,
+		},
+	}
+	types.SignBlock(privKey, block)
+	return block
+}
+
+
+// The Genesis Block right now will not be deterministic at all times because each time we are going to createGenesisBlock it is going to create a new privatekey
+// and it should be one from a seed. A we are going to create the Genesis Block with NewChain(). The problem is that we cannot validate the genisis block like any other block
+// because it is the genesis block. We don't have a previous hash due to the genesis block being the first block.

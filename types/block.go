@@ -9,8 +9,25 @@ import (
 	pb "github.com/golang/protobuf/proto"
 )
 
+func VerifyBlock(b *proto.Block) bool { // Normally we can attach these functions on a receiver (form the block receiver), but in this case we cannot because it is on a generated proto buffer. But it actually the same concept.
+	if len(b.PublicKey) != crypto.PubKeyLen {
+		return false
+	}
+	if len(b.Signature) != crypto.SignatureLen {
+		return false
+	}
+	sig := crypto.SignatureFromBytes(b.Signature)
+	pubKey := crypto.PublicKeyFromBytes(b.PublicKey)
+	hash := HashBlock(b)
+	return sig.Verify(pubKey, hash)
+}
+
 func SignBlock(pk *crypto.PrivateKey, b *proto.Block) *crypto.Signature {
-	return pk.Sign(HashBlock(b))
+	hash := HashBlock(b)
+	sig := pk.Sign(hash)
+	b.PublicKey = pk.Public().Bytes()
+	b.Signature = sig.Bytes()
+	return sig
 }
 
 // HashBlock returns a SHA256 of the header.

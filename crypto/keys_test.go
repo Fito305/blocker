@@ -9,9 +9,9 @@ import (
 
 func TestGeneratePrivateKey(t *testing.T) {
 	privKey := GeneratePrivateKey()
-	assert.Equal(t, len(privKey.Bytes()), privKeyLen)
+	assert.Equal(t, len(privKey.Bytes()), PrivKeyLen)
 	pubKey := privKey.Public()
-	assert.Equal(t, len(pubKey.Bytes()), pubKeyLen)
+	assert.Equal(t, len(pubKey.Bytes()), PubKeyLen)
 }
 
 func TestNewPrivateKeyFromString(t *testing.T) {
@@ -20,7 +20,7 @@ func TestNewPrivateKeyFromString(t *testing.T) {
 		privKey = NewPrivateKeyFromString(seed)
 		addressStr = "d5ff8f76dadd9143be31cad6896184e66289c59b"
 	)
-	assert.Equal(t, privKeyLen, len(privKey.Bytes()))
+	assert.Equal(t, PrivKeyLen, len(privKey.Bytes()))
 	address := privKey.Public().Address()
 	assert.Equal(t, addressStr, address.String())
 }
@@ -46,7 +46,7 @@ func TestPublicKeyToAddress(t *testing.T) {
 	privKey := GeneratePrivateKey()
 	pubKey := privKey.Public()
 	address := pubKey.Address()
-	assert.Equal(t, addressLen, len(address.Bytes()))
+	assert.Equal(t, AddressLen, len(address.Bytes()))
 	fmt.Println(address) // So the address is basically 
 	// Just the structure but because we have a string interface
 	// / method, it'll print a nice string.
