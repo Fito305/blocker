@@ -13,6 +13,9 @@ import (
 )
 
 func main() {
+	// seed := util.RandomHash() // Delete this after you grab the hash from the terminal.
+	// fmt.Println(hex.EncodeToString(seed))
+	// return // use to return early and copy the seed hash. Use that hash for the Genesis block.
 	// SO what is going to happen is, we are going to spin up :3000, he doesnt know anything. Then :4000 is going to have this :3000 that is bootstrapNode(). So what is going to happen is :4000 is going to dail (handshake/conncect) with :3000. What is going to happen is that htye are going to exchange versions, so they both are going to have each other in their peer map. So :3000 is going to connect to :4000 and :4000 is going to be connected with :3000. Look at :5000 comment.
 	makeNode(":3000", []string{}, true) // The bool is validator
 	time.Sleep(time.Second) // We need to sleep here. It's very important we need to give it time. We are making a node and then we are making another node directly after it. So it's could be that :3000 is not ready yet.

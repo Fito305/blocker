@@ -9,6 +9,78 @@ import (
 	"github.com/Fito305/blocker/types"
 )
 
+type UTXOStorer interface {
+	Put(string, *UTXO) error
+	Get(string) (*UTXO, error)
+}
+
+type MemoryUTXOStore struct {
+	lock sync.RWMutex
+	data map[string]*UTXO
+}
+
+func NewMemoryUTXOStore() *MemoryUTXOStore {
+	return &MemoryUTXOStore{
+		data: make(map[string]*UTXO),
+	}
+}
+
+func (s *MemoryUTXOStore) Get(hash string) (*UTXO, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	utxo, ok := s.data[hash]
+	if !ok {
+		return nil, fmt.Errorf("could not find utxo with hash %s", hash)
+	}
+
+	return utxo, nil
+}
+
+func (s *MemoryUTXOStore) Put(key string, utxo *UTXO) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.data[key] = utxo
+
+	return nil
+}
+
+type TXStorer interface {
+	Put(*proto.Transaction) error
+	Get(string) (*proto.Transaction, error)
+}
+
+type MemoryTXStore struct {
+	lock sync.RWMutex // make sure it is protected. Make sure we can lock things so we don't have any race conditions.
+	txx map[string]*proto.Transaction
+}
+
+func NewMemoryTXStore() *MemoryTXStore {
+	return &MemoryTXStore{
+		txx: make(map[string]*proto.Transaction),
+	}
+}
+
+func (s *MemoryTXStore) Get(hash string) (*proto.Transaction, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	tx, ok := s.txx[hash]
+	if !ok {
+		return nil, fmt.Errorf("could not find tx with hash %s", hash)
+	}
+	return tx, nil
+}
+
+func (s *MemoryTXStore) Put(tx *proto.Transaction) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	hash := hex.EncodeToString(types.HashTransaction(tx))
+	s.txx[hash] = tx
+	return nil
+}
+
 type BlockStorer interface {
 	Put(*proto.Block) error
 	Get(string) (*proto.Block, error)
@@ -44,3 +116,5 @@ func (s *MemoryBlockStore) Get(hash string) (*proto.Block, error) {
 }
 
 // NOTE: If you want to do this with a good implementation that is not in memory you would serialized that into bytes.
+
+// It is better to make a generic interface because the only thing that changes is the underlying data. It gets nast with this many interfaces.
