@@ -34,7 +34,7 @@ message Header {
     int32 version = 1;
     int32 height = 2;
     bytes prevHash = 3;
-    bytes rootHash = 4; // merkle root of txs
+    bytes rootHash = 4; // merkle root of txx. What we do is we are going to take this root hash and construct our our own Merkle Tree based on the transaction hashes and then we are going to calculate the merkle root and then we are going to compare those two with each other and if the comparison is fine, then we have a valid root hash. 
     int64 timestamp = 5;
 }
 

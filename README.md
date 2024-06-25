@@ -98,3 +98,45 @@ keys.go
 // representation of the bytes of the public key. Most of the
 // time it's just the first 20 or something bytes.
 // We will use the first 20 bytes as our address.
+
+
+// What is a Merkle Tree? github.com/cbergoon/merkletree
+It is a crypto graphical way to determine the integrety of the tree you construct. You are going to have a `root hash`. And the root hash
+is going to be some calculation (it does not really matter how it is implemented inside). You can easily make a merkle treee yourself. 
+The only thing we care about is how are we going to us it?
+CODE - not complete look at github
+// list of content to build tree
+`var list []merkletree.Content
+list = append(list, TestContent{x: "Hello"}) // append transaction hash or whatever we want 
+list = append(list, TestContent{x: "Hi" }) // in each block we are going to create a merkle tree and then we are going to append all the transactions into the list
+list = append(list, TestContent{x: "hey"}) // and then we are going to calculate the merkle root. 
+list = append(list, TestContent{x: "Hola"}) // Each time somebody is going to get/ fetch a block and you want to verify that it needs to verify to merkle root which is the root of all transactions
+`
+// Create a new Merkle Tree from the list content
+`t, err := merkletree.NewTree(list)
+if err != nil {
+    Log.Fatal(err)
+}
+`
+// Get the Merkle Root of the tree
+`mr := t.MerkleRoot() // It is the Merkle Root that we need. 
+Log.Println(mr)
+`
+
+// Verify the entire tree (hashes for each node) is valid
+`vt, err := t.VerifyTree()
+if err != nil {
+    Log.Fatal(err)
+}
+Log.println("Verify Tree: ", vt)
+`
+
+// Verify a specific content in the tree
+`vc, err := t.VerifyContent(list[0])
+if err != nil {
+    Log.Fatal(err)
+}
+
+Log.Println("Verify Contetn: ", vc)
+
+// A Merkle Tree root is very important for a secure blockchain.

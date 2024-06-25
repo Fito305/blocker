@@ -3,6 +3,7 @@ module github.com/Fito305/blocker
 go 1.22.3
 
 require (
+	github.com/cbergoon/merkletree v0.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
