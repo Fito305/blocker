@@ -90,18 +90,14 @@ func (c *Chain) addBlock(b *proto.Block) error {
 		}
 		hash := hex.EncodeToString(types.HashTransaction(tx))
 
-		// address_txhash - concat address with txhash
-		// that way we can fetch all the uspent address.
 		for it, output := range tx.Outputs { // We have to loop over this because we have to make it for each output.
 			utxo := &UTXO{
-				Hash:        hash,
-				Amount:      output.Amount,
+				Hash:     hash,
+				Amount:   output.Amount,
 				OutIndex: it,
-				Spent:       false, // go will make this false by default but this is to make it more verbose.
+				Spent:    false, // go will make this false by default but this is to make it more verbose.
 			}
-			address := crypto.AddressFromBytes(output.Address)
-			key := fmt.Sprintf("%s_%s", address, hash)
-			if err := c.utxoStore.Put(key, utxo); err != nil {
+			if err := c.utxoStore.Put(utxo); err != nil {
 				return err
 			}
 		}
@@ -142,14 +138,48 @@ func (c *Chain) ValidateBlock(b *proto.Block) error { // the b passed in the par
 	}
 
 	for _, tx := range b.Transactions {
-		if !types.VerifyTransaction(tx) {
-			return fmt.Errorf("invalid tx signature")
+		if c.ValidateTransaction(tx); err != nil {
+			return err
 		}
-
-		// for _, input := range tx.Inputs { // we need to check if this input is going to be an unspent output.
-		// 	// we currently have access to the hash but we don't have acces to the address. So if we don't have access to the address we cannot fetch it.
-		// }
 	}
+	return nil
+}
+
+func (c *Chain) ValidateTransaction(tx *proto.Transaction) error {
+	// Verify the signature
+	if !types.VerifyTransaction(tx) {
+		return fmt.Errorf("invalid tx signature")
+	}
+	// Check if all the inputs are unspent.
+	var (
+		nInputs = len(tx.Inputs)
+		hash     = hex.EncodeToString(types.HashTransaction(tx))
+	)
+	sumInputs := 0
+	for i := 0; i < nInputs; i++ {
+		prevHash := hex.EncodeToString(tx.Inputs[i].PrevTxHash)
+		key := fmt.Sprintf("%s_%d", prevHash, i)
+
+		// fmt.Println("phash =>", prevHash)
+
+		utxo, err := c.utxoStore.Get(key)
+		sumInputs += int(utxo.Amount)
+		if err != nil {
+			return err
+		}
+		if utxo.Spent {
+			return fmt.Errorf("input %d of tx %s is already spent", i, hash)
+		}
+	}
+	sumOutputs := 0
+	for _, output := range tx.Outputs {
+		sumOutputs+= int(output.Amount)
+	}
+
+	if sumInputs < sumOutputs {
+		return fmt.Errorf("insufficient balance got (%d) spending (%d)", sumInputs, sumOutputs)
+	}
+
 	return nil
 }
 
@@ -166,7 +196,7 @@ func createGenesisBlock() *proto.Block {
 	tx := &proto.Transaction{
 		Version: 1,
 		Inputs:  []*proto.TxInput{}, // We don't need the input only the outputs.Because we are not going to validate this. Because it is the genesis (first) block, we don't give a shit. We are going to create tokens out of thin air.
-		Outputs: []*proto.TxOutput{ // We are gong to output the seed above so we can use it in our test.
+		Outputs: []*proto.TxOutput{ // We are gong to output the seed above so we can use it in our test. This is going to be index / output 0.
 			{
 				Amount:  1000,
 				Address: privKey.Public().Address().Bytes(),

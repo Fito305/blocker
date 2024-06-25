@@ -1,8 +1,6 @@
 package node
 
 import (
-	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/Fito305/blocker/crypto"
@@ -70,6 +68,39 @@ func TestAddBlock(t *testing.T) {
 	}
 }
 
+func TestAddBlockWithInsufficientFunds(t *testing.T) {
+	var (
+		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
+		block = randomBlock(t, chain)
+		privKey = crypto.NewPrivateKeyFromSeedStr(godSeed)
+		recipient = crypto.GeneratePrivateKey().Public().Address().Bytes()
+	)
+	prevTx, err := chain.txStore.Get("hashPrintedFromFilechain.go-addBlockfuncfmtPrintlnTX:") // - fetch transaction transaction. Going to fetch a transaction that we stored because in that transaction there are my outputs. The outputs that I need to use for inputs below. This is nasty code.
+	assert.Nil(t, err)
+	inputs := []*proto.TxInput{
+		{
+			PrevTxHash: types.HashTransaction(prevTx),
+			PrevOutIndex: 0, // This is output / index 0.
+			PublicKey: privKey.Public().Bytes(),
+		},
+	}
+	outputs := []*proto.TxOutput{
+		{
+			Amount: 10001, // Cannot send 10001 because we only have 1000 in chain.go
+			Address: recipient,
+		},
+	}
+	tx := &proto.Transaction{
+		Version: 1,
+		Inputs: inputs,
+		Outputs: outputs,
+	}
+	sig := types.SignTransaction(privKey, tx)
+	tx.Inputs[0].Signature = sig.Bytes()
+	block.Transactions = append(block.Transactions, tx)
+	require.NotNil(t, chain.AddBlock(block)) // Adding a block should fail due to not having enough funds.
+}
+
 func TestAddblockWithTx(t *testing.T) {
 	var (
 		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
@@ -80,14 +111,14 @@ func TestAddblockWithTx(t *testing.T) {
 	// The input of a transaction is the output of a previous transaction. 
 	// In the input we need to specify the previous output.
 
-	ftt, err := chain.txStore.Get("hashPrintedFromFilechain.go-addBlockfuncfmtPrintlnTX:") // ftt - fetch transaction transaction. Going to fetch a transaction that we stored because in that transaction there are my outputs. The outputs that I need to use for inputs below. This is nasty code.
+	prevTx, err := chain.txStore.Get("hashPrintedFromFilechain.go-addBlockfuncfmtPrintlnTX:") // - fetch transaction transaction. Going to fetch a transaction that we stored because in that transaction there are my outputs. The outputs that I need to use for inputs below. This is nasty code.
 	assert.Nil(t, err)
 
 
 	inputs := []*proto.TxInput{
 		{
-			PrevTxHash: types.HashTransaction(ftt),
-			PrevOutIndex: 0,
+			PrevTxHash: types.HashTransaction(prevTx),
+			PrevOutIndex: 0, // This is output / index 0.
 			PublicKey: privKey.Public().Bytes(),
 		},
 	}
@@ -112,19 +143,6 @@ func TestAddblockWithTx(t *testing.T) {
 
 	block.Transactions = append(block.Transactions, tx)
 	require.Nil(t, chain.AddBlock(block))
-	txHash := hex.EncodeToString(types.HashTransaction(tx))
-
-	fetchedTx, err := chain.txStore.Get(txHash)
-	assert.Nil(t, err)
-	assert.Equal(t, tx, fetchedTx)
-
-	// check if their is an UTXO that is unspent.
-	address := crypto.AddressFromBytes(tx.Outputs[1].Address) // Outputs[0] gets the hash for the amount spent 100 above, and Outputs[1] gets the hash for the amount 900 above sent back to us.
-	key := fmt.Sprintf("%s_%s", address, txHash)
-
-	utxo, err := chain.utxoStore.Get(key)
-	assert.Nil(t, err)
-	fmt.Println(utxo)
 }
 
 // So what are we doing? We create a random block, we store it into a chain, we fetch it back and then we compare if the the thing we stored the block
@@ -137,3 +155,18 @@ func TestAddblockWithTx(t *testing.T) {
 // In our Genesis Block we are sending money from nowhere (created out of thin air) to the godSeed. Then we are going to send from the our godSeed address to the recipient varaible in the function above. 
 // We are sending 100 in the outputs := []*proto.TxOutput but we have 1000 so we need to specify in our inputs the output from the Genesis with is 0 (PrevOutIndex: 0). 
 // In the outputs, we make another transaction back to ourselves for the 900 left out of the 1000 (we sent 100)
+
+// If I want to make a new transaction, that means that I need to provide two things in the transaction. 
+// I need to provide an input or multiple inputs which is going to be outputs of previous transactions sent to me. 
+// An output of a transaction is always going to be an input of the next transaction for myself. 
+// So if I want to send 100 tokens to someone, I need to provide (that is going to be an output, im going to make an output of 100 tokens to your address).
+// But I need to have an input or multiple inputs with the sum of atleast 100 tokens.
+// In order to test this, we create a Genesis block. The GenesisBlock is the first block of a block chain. Im going to create some coins out of thin air.
+// And Im going to send them the 1000 coins to the private key in chain.go createGenesisBlock().
+// And the private key is going to be the godSeed variable. So it is going to be the address of the godSeed.
+// And that is going to be prevTx varaible in TestAddBlockWithTx() above.
+// So what we do is check the hash of the transaction. We got the hash of the transaction in prevTx and we are going to fetch that transaction 
+// so we can use the output as an input for our test. This is important to understand and it is what makes it secure.
+
+
+// BITCOIN USES UTXO.
