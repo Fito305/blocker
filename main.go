@@ -24,7 +24,7 @@ func main() {
 	makeNode(":5000", []string{":4000"}, false) // But the we spin up node :5000. And :5000 is only aware and is going to connect to :4000. So what is going to happen is :4000 is going to connect with :5000. And :5000 is going to connect with :4000. They are going to have each other in their peer map. But :5000 is not going to be connected with :3000. But thanks to the peer list, that is going to be sent by :4000 is connected all the way to :3000. :5000 has the chance the ability to also be aware of :3000. And that is how the whole network is going to be boostraped.
 
 	for { // going to keep sending transactions every 2 seconds. if you have a block time of 5, you are going to have 2 transactions each block.
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second)
 		makeTransaction()
 	}
 

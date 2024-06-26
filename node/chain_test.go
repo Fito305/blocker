@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Fito305/blocker/crypto"
@@ -112,7 +113,7 @@ func TestAddblockWithTx(t *testing.T) {
 	// In the input we need to specify the previous output.
 
 	prevTx, err := chain.txStore.Get("hashPrintedFromFilechain.go-addBlockfuncfmtPrintlnTX:") // - fetch transaction transaction. Going to fetch a transaction that we stored because in that transaction there are my outputs. The outputs that I need to use for inputs below. This is nasty code.
-	assert.Nil(t, err)
+	assert.Nil(t, err) // prevTx is the previous transaction. And this tx actually be the Genesis block in createGenesisBlock() in chain.go. With the output with amount 1000. It is currently false for Spent but we are going to set Spent to true as in we spent the tokens.
 
 
 	inputs := []*proto.TxInput{
@@ -137,6 +138,8 @@ func TestAddblockWithTx(t *testing.T) {
 		Inputs: inputs,
 		Outputs: outputs,
 	}
+
+	fmt.Printf("%v\n", block.Header) // for debuging
 
 	sig := types.SignTransaction(privKey, tx)
 	tx.Inputs[0].Signature = sig.Bytes()
@@ -171,3 +174,4 @@ func TestAddblockWithTx(t *testing.T) {
 
 
 // BITCOIN USES UTXO.
+

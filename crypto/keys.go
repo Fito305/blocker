@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"io"
 )
 
@@ -121,7 +122,11 @@ func (s *Signature) Bytes() []byte {
 }
 
 func (s *Signature) Verify(pubKey *PublicKey, msg []byte) bool {
-	return ed25519.Verify(pubKey.key, msg, s.value)
+	ok := ed25519.Verify(pubKey.key, msg, s.value)
+	if !ok {
+		fmt.Println("invalid signature") // In production code you would delete this statement and log.
+	}
+	return ok
 }
 
 type Address struct {

@@ -35,10 +35,13 @@ func VerifyTransaction(tx *proto.Transaction) bool {
 		)
 		// TODO: make sure we dont run into problems after verification
 		// cause we have set the signature to nil.
-		input.Signature = nil
+		tempSig := input.Signature
+		input.Signature = nil // We don't hash the signature, we hash the transaction without the signature.
+		// That is why we set the signature to nil. And then we are going to hash the transaction and then verify.
 		if !sig.Verify(pubKey, HashTransaction(tx)) {
 			return false
 		}
+		input.Signature = tempSig
 	}
 	return true
 }

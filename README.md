@@ -5,6 +5,8 @@ Verification is verifying the signature and then validation is validate the inpu
 We need to have some kind of a chain, a blockchain mechanism to store and retireive blocks and validate all that stuff.
 Because then we can actually start filling up the blockchain, validating blocks, and actually making transactions. 
 
+In Bitcoin nobody can touch the Genisis Block. 
+
 Main.go notes
 // NOTE: A very important aspect in blockchain is called Peer Discovery.
 // For example the whole Bitcoin network has a tremendous amount of nodes. And we cannot put all these nodes into 

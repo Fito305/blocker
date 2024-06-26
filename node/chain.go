@@ -101,6 +101,24 @@ func (c *Chain) addBlock(b *proto.Block) error {
 				return err
 			}
 		}
+		for _, input := range tx.Inputs { // For each input we check if the tokens have been spent or not (true or false)
+			key := fmt.Sprintf("%s_%d", hex.EncodeToString(input.PrevTxHash), input.PrevOutIndex) // s is th prevHash and d is the input index of the hash		// We are going to grab the utxo transaction output from the previos tx. In this case the Genesis block.
+			fmt.Println("key --->",key) // normally this key should be a transaction.
+			utxo, err := c.utxoStore.Get(key)
+			if err != nil {
+				return err
+			}
+			utxo.Spent = true
+			if err := c.utxoStore.Put(utxo); err != nil {
+				return err
+			}
+			fmt.Println("utxo --->", utxo)
+			// utxo, err = c.utxoStore.Get(key)
+			// if err != nil {
+			// 	return err
+			// }
+			// fmt.Println("utxo --->", utxo) // This block is to check if it has been stored in the utxo.
+		}
 	}
 	// validation
 	return c.blockStore.Put(b) // block without validation. The genisis block is not validated.

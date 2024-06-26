@@ -43,7 +43,10 @@ message TxInput {
     bytes prevTxHash = 1;
     // The index of the output of the previous transaction we want to spend.
     uint32 prevOutIndex = 2;
+    // Public key of the spender/signer.
     bytes publicKey = 3;
+    // Signature of spender that signed the transaction with its private key.
+    // We don't hash the signature
     bytes signature = 4;
 
 }
@@ -55,6 +58,8 @@ message TxOutput {
 
 message Transaction {
     int32 version = 1;
+    // The inputs to the transaction, including the previous 
+    // tx putputs that are being spent.
     repeated TxInput inputs =2;
     repeated TxOutput outputs = 3;
 }
